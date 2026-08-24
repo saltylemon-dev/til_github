@@ -1,0 +1,20 @@
+[project]
+name = "til_github"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.4.6",
+    "opencv-python>=5.0.0.93",
+    "pypdfium2>=5.13.0",
+    "reportlab>=5.0.1",
+    "tqdm>=4.70.0",
+]
+
+[project.scripts]
+til_github = "til_github:main"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
