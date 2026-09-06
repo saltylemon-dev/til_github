@@ -3,7 +3,7 @@ from pathlib import Path
 import cv2
 from tqdm import tqdm
 
-from convert_func import add_stripe, load_cv, pdf_2_png, pil_2_pdf
+from convert_func import add_stripe_wrap, load_cv, pdf_2_png, pil_2_pdf
 
 
 def main():
@@ -29,9 +29,9 @@ def get_diff_rel_paths(srcdir: Path, dstdir: Path):
 def stripe_on_pdf(in_pdf: Path, out_pdf: Path, dpi: int):
     buffer_dir = Path("./__buffer")
     png_paths = pdf_2_png(in_pdf, buffer_dir, dpi)
-    for png_path in tqdm(png_paths, "| add stripe on png |"):
+    for png_path in tqdm(png_paths, "| add stripe on png |", leave=False):
         arr = load_cv(png_path)
-        arr = add_stripe(arr.copy())
+        arr = add_stripe_wrap(arr.copy())
         cv2.imwrite(png_path, arr)
 
     (out_pdf.parent).mkdir(parents=True, exist_ok=True)
