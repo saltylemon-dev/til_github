@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import cv2
@@ -11,10 +12,18 @@ def main():
     input_pdf_root = Path("./inputs")
     output_pdf_root = Path("./outputs")
     diff_path = get_diff_rel_paths(input_pdf_root, output_pdf_root)
-    for rel_path in tqdm(diff_path, "| add stripe on pdf |"):
+    if len(diff_path) == 0:
+        print("0 files are found. Nothing to do. (close in 5 sec.)")
+        time.sleep(5)
+        return
+    print(f"{len(diff_path):03} files are found.")
+    for i, rel_path in enumerate(diff_path):
+        print(f"{i + 1:03}/{len(diff_path):03} | {rel_path}")
         input_path = input_pdf_root / rel_path
         output_path = output_pdf_root / rel_path
         stripe_on_pdf(input_path, output_path, dpi=dpi)
+    print("finished. (close in 5 sec.)")
+    time.sleep(5)
 
 
 def get_diff_rel_paths(srcdir: Path, dstdir: Path):
@@ -22,13 +31,14 @@ def get_diff_rel_paths(srcdir: Path, dstdir: Path):
         raise ValueError()
     src_rel_paths = [path.relative_to(srcdir) for path in srcdir.rglob("*.pdf")]
     dst_rel_paths = [path.relative_to(dstdir) for path in dstdir.rglob("*.pdf")]
-    diff = list(set(src_rel_paths) - set(dst_rel_paths))
+    diff = sorted(set(src_rel_paths) - set(dst_rel_paths))
     return diff
 
 
 def stripe_on_pdf(in_pdf: Path, out_pdf: Path, dpi: int):
     buffer_dir = Path("./__buffer")
     png_paths = pdf_2_png(in_pdf, buffer_dir, dpi)
+
     for png_path in tqdm(png_paths, "| add stripe on png |", leave=False):
         arr = load_cv(png_path)
         arr = add_stripe_wrap(arr.copy())

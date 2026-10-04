@@ -75,49 +75,63 @@ def pil_2_cv(img: Image.Image):
 
 def add_stripe_wrap(img_arr: NDArray):
     h, w, _ = img_arr.shape
-    gray = cv2.cvtColor
 
     gray = cv2.cvtColor(img_arr.copy(), cv2.COLOR_BGR2GRAY)
     gray = 255 - gray
     kernel = np.ones((3, 15), dtype=np.uint8)
     graymap = cv2.dilate(gray, kernel)
+    _, graymap = cv2.threshold(graymap, 254, 255, cv2.THRESH_BINARY)
 
-    # detect right border
+    # detect right and left border
     col_stats = graymap.astype(np.float32).sum(axis=0)
     thresh = otsu_threshold(col_stats)
     right_border_idx = np.flatnonzero(col_stats > thresh)[-1]
+    left_border_idx = np.flatnonzero(col_stats > thresh)[0]
 
     res = img_arr.copy()
-    is_two_column = check_is_two_column()
+    is_two_column = check_is_two_column(col_stats, thresh)
 
     if is_two_column:
-        segment_stripe(res, left=w // 2 + 10, right=right_border_idx + 10)
-        segment_stripe(res, left=w - right_border_idx - 10, right=w // 2 - 10)
+        res = segment_stripe(res, left=w // 2 + 10, right=right_border_idx + 10)
+        res = segment_stripe(res, left=left_border_idx - 10, right=w // 2 - 10)
     else:
+        # TODO 実装
         raise NotImplementedError()
     return res
 
 
-def check_is_two_column():
+def check_is_two_column(col_stats, thresh):
+    # TODO 実装
     return True
 
 
 def segment_stripe(arr, top=0, bottom=None, left=0, right=None):
-    arr[top:bottom, left:right] = add_stripe(arr[top:bottom, left:right])
+    h, w = arr.shape[:2]
+    if bottom is None:
+        bottom = h
+    if right is None:
+        right = w
+    if not (0 <= top < bottom <= h):
+        return arr
+    if not (0 <= left < right <= w):
+        return arr
+    arr[top:bottom, left:right] = add_stripe(arr[top:bottom, left:right].copy())
     return arr
 
 
 def add_stripe(img_arr: NDArray) -> NDArray:
     h, w, _ = img_arr.shape
-    gray = cv2.cvtColor(img_arr.copy(), cv2.COLOR_BGR2GRAY)
-    gray = 255 - gray
+    if h == 0 or w == 0:
+        return img_arr
+    img_gray = cv2.cvtColor(img_arr.copy(), cv2.COLOR_BGR2GRAY)
+    img_gray = 255 - img_gray
 
     kernel = np.ones((3, 15), dtype=np.uint8)
-    arr = cv2.dilate(gray, kernel)
+    content_map = cv2.dilate(img_gray, kernel)
 
-    row_stats = arr.astype(np.float32).sum(axis=1)
-    row_stats = row_stats / 255.0 / w
-    is_content_row = row_stats > 0.4
+    row_contents_sum = content_map.astype(np.float32).sum(axis=1)
+    thresh = otsu_threshold(row_contents_sum)
+    is_content_row = row_contents_sum > thresh
 
     overlay = img_arr.copy()
     in_line = False
@@ -131,8 +145,8 @@ def add_stripe(img_arr: NDArray) -> NDArray:
         if not is_content_row[i] and in_line:
             in_line = False
             if line_cnt % 4 < 2:
-                cv2.rectangle(overlay, (0, start - 10), (w - 1, i + 10), (0, 0, 0), -1)
-    alpha = 0.4
+                cv2.rectangle(overlay, (0, start), (w - 1, i), (0, 0, 0), -1)
+    alpha = 0.20
     res = cv2.addWeighted(overlay, alpha, img_arr, 1 - alpha, 0)
 
     return res
@@ -155,7 +169,6 @@ def otsu_threshold(x, bins=256):
     total = sum0[-1]
 
     mean0 = np.divide(sum0, w0, out=np.zeros_like(sum0, dtype=float), where=w0 > 0)
-
     mean1 = np.divide(total - sum0, w1, out=np.zeros_like(sum0, dtype=float), where=w1 > 0)
 
     # クラス間分散
